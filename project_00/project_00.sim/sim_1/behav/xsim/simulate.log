@@ -1,0 +1,57 @@
+Time resolution is 1 ps
+=================================
+   TMR Fault Tolerance Testbench 
+=================================
+
+[PHASE 1] Normal Operation
+  t=25000 | PC=00000000 | fault=0
+  t=35000 | PC=00000000 | fault=0
+  t=45000 | PC=00000004 | fault=0
+  t=55000 | PC=00000008 | fault=0
+  t=65000 | PC=0000000c | fault=0
+  t=75000 | PC=00000010 | fault=0
+  t=85000 | PC=00000014 | fault=0
+  t=95000 | PC=00000018 | fault=0
+  t=105000 | PC=0000001c | fault=0
+  t=115000 | PC=00000020 | fault=0
+  PC           = 00000024
+  Fault Detect = 0 (expect 0)
+  PASS: No fault in normal operation
+
+[PHASE 2] Injecting Fault into CPU2
+  t=125000 | PC=00000024 | fault=0
+  t=135000 | PC=00000028 | fault=1
+  t=145000 | PC=00000024 | fault=1
+  t=155000 | PC=00000024 | fault=1
+  t=165000 | PC=00000024 | fault=1
+  t=175000 | PC=00000024 | fault=1
+  t=185000 | PC=00000024 | fault=1
+  t=195000 | PC=00000024 | fault=1
+  t=205000 | PC=00000024 | fault=1
+  t=215000 | PC=00000024 | fault=1
+  PC           = 00000024 (should NOT be DEADBEEF)
+  Fault Detect = 1 (expect 1)
+  PASS: Fault correctly detected!
+  PASS: Voter corrected output!
+
+[PHASE 3] Removing Fault - Recovery
+  t=225000 | PC=00000024 | fault=1
+  t=235000 | PC=00000024 | fault=0
+  t=245000 | PC=00000054 | fault=0
+  t=255000 | PC=00000058 | fault=0
+  t=265000 | PC=0000005c | fault=0
+  t=275000 | PC=00000060 | fault=0
+  t=285000 | PC=00000064 | fault=0
+  t=295000 | PC=00000068 | fault=0
+  t=305000 | PC=0000006c | fault=0
+  t=315000 | PC=00000070 | fault=0
+  PC           = 00000074
+  Fault Detect = 0 (expect 0)
+  PASS: System recovered successfully!
+
+=================================
+  TMR SIMULATION COMPLETE!
+  System mimics ISRO space-grade
+  fault tolerant processor design
+=================================
+$finish called at time : 320 ns : File "D:/riscv_processor/project_00/project_00.srcs/sim_1/new/tmr_tb.v" Line 94

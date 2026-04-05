@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# Vivado v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 19:35:11 GMT 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Sun Apr  5 18:56:41 2026
+# Process ID         : 25044
+# Current directory  : D:/riscv_processor/project_00/project_00.runs/synth_1
+# Command line       : vivado.exe -log tmr_top.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source tmr_top.tcl
+# Log file           : D:/riscv_processor/project_00/project_00.runs/synth_1/tmr_top.vds
+# Journal file       : D:/riscv_processor/project_00/project_00.runs/synth_1\vivado.jou
+# Running On         : Prerna
+# Platform           : Windows Server 2016 or Windows 10
+# Operating System   : 26100
+# Processor Detail   : 12th Gen Intel(R) Core(TM) i5-12450H
+# CPU Frequency      : 2496 MHz
+# CPU Physical cores : 8
+# CPU Logical cores  : 12
+# Host memory        : 8267 MB
+# Swap memory        : 13276 MB
+# Total Virtual      : 21544 MB
+# Available Virtual  : 2197 MB
+#-----------------------------------------------------------
+source tmr_top.tcl -notrace
