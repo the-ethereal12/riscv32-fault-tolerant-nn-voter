@@ -1,127 +1,94 @@
-# Fault-Tolerant RISC-V RV32I Processor with ML-Enhanced TMR Voter
+# Fault-Tolerant RISC-V (RV32I subset) TMR System in Verilog
 
-![Verilog](https://img.shields.io/badge/Language-Verilog-blue)
-![Python](https://img.shields.io/badge/ML-Python%20%7C%20Scikit--learn-green)
-![FPGA](https://img.shields.io/badge/FPGA-Artix--7%20XC7A35T-orange)
-![Accuracy](https://img.shields.io/badge/ML%20Voter%20Accuracy-99.90%25-brightgreen)
-![Status](https://img.shields.io/badge/Status-Complete-success)
+A Triple Modular Redundancy (TMR) system built from three copies of a small single-cycle RISC-V core, with fault injection, fault detection and recovery, simulated and synthesized in Vivado. A neural-network voter is explored separately in Python.
 
----
+**Status:** hardware simulation working; the neural-network voter is a Python experiment and is **not yet implemented in RTL** (see [Limitations and future work](#limitations-and-future-work)).
 
-## Overview
+## What is in this project
 
-This project implements a fully pipelined **RISC-V RV32I processor** with hardware fault tolerance using **Triple Modular Redundancy (TMR)**. Unlike traditional TMR systems that use a simple majority voter, this design replaces the voter with a **trained neural network** that can detect and handle both single and double fault scenarios.
+| Part | Description |
+|---|---|
+| Processor core | Single-cycle RV32I **subset**: ADD, AND, OR, ADDI, LW, SW, BEQ (`rtl/riscv_top.v` and submodules) |
+| TMR system | Three core copies, a fault-injection input, and a comparator-based voter (`rtl/tmr_top.v`, `rtl/ml_voter.v`) |
+| ML experiment | Neural-network voter trained in Python and compared with a majority voter (`ml_experiment/`) |
+| FPGA target | Digilent Basys3 (Artix-7 XC7A35T), constraints in `constraints/basys3.xdc` |
 
-The system runs three identical RISC-V CPUs in parallel. The ML voter monitors all three outputs and intelligently selects the correct result — even in cases where the traditional majority voter would fail.
+## How the TMR system works
 
----
+1. Three identical cores run the same program; each exposes its program counter (PC).
+2. `fault_enable` / `fault_inject` replace CPU2's PC at the voter input with an arbitrary value (for example `DEADBEEF`) to emulate a fault.
+3. The voter (`ml_voter.v`, a plain comparator despite its name) compares the three PCs, raises `fault_detected` when they differ, and selects a value that two cores agree on.
+4. While a fault is flagged, `tmr_top` holds the **last known good PC** on its output. When the fault is removed, normal output resumes.
 
-## Key Features
+## Simulation results (Vivado / Icarus Verilog)
 
-- Full **RV32I instruction set** (40+ instructions)
-- **5-stage pipeline** — IF → ID → EX → MEM → WB
-- **Hazard detection** with data forwarding and stall logic
-- **Triple Modular Redundancy** — 3 CPU copies running in parallel
-- **Fault injection** — inject arbitrary bad values to test the system
-- **ML Neural Network Voter** — replaces traditional majority voter
-- Handles **double fault cases** where majority voting fails
-- Fully **synthesized** on Artix-7 FPGA
+| Phase | Stimulus | `fault_detected` | Result |
+|---|---|---|---|
+| 1. Normal | All cores healthy | 0 | PASS |
+| 2. Fault injected | `DEADBEEF` forced into CPU2 | 1 | PASS (output does not show `DEADBEEF`) |
+| 3. Recovery | Fault removed | 0 | PASS |
 
----
+![TMR waveform](docs/images/tmr_ml_voter_waveform.jpeg)
 
-## ML Voter Results
+Single-core simulation (PC, instruction, ALU result). The instruction memory holds only a 6-instruction test program, so `instr` becomes `X` after it ends:
 
-| Voter Type | Accuracy | Handles Double Faults |
-|------------|----------|----------------------|
-| Simple Majority Voter | 65.30% | No |
-| **ML Neural Network Voter** | **99.90%** | **Yes** |
-| **Improvement** | **+34.60%** | — |
+![Single core waveform](docs/images/riscv-top-complete-cpu.jpeg)
 
-The ML voter is trained using **MLPClassifier** (scikit-learn) on 3000 synthetic fault scenarios including no-fault, single-fault, and double-fault cases. It predicts which of the 3 CPUs is producing the correct output.
+## FPGA utilization (Artix-7 XC7A35T, synthesis)
 
----
+| Resource | Used | Available |
+|---|---|---|
+| Slice LUTs | 49 | 32,600 |
+| Slice registers | 91 | 65,200 |
+| Bonded IOB | 68 | 210 |
 
-## Simulation Results (Vivado)
+Only the PC is brought out of each core, so synthesis removes most of the unobserved logic. These numbers do **not** represent three complete cores.
 
-| Phase | Description | fault_detected | Result |
-|-------|-------------|----------------|--------|
-| Phase 1 — Normal | All 3 CPUs running correctly | 0 | PASS |
-| Phase 2 — Fault Injected | DEADBEEF injected into CPU2, ML voter corrects output | 1 | PASS |
-| Phase 3 — Recovery | Fault removed, system continues normally | 0 | PASS |
+![Utilization](docs/images/utilization-report.jpeg)
 
----
+More reports: [`docs/images/`](docs/images) and [`docs/elaborated-design.pdf`](docs/elaborated-design.pdf).
 
-## FPGA Resource Utilization (Artix-7 XC7A35T)
+## ML voter experiment (Python)
 
-| Resource | Used | Available | Utilization |
-|----------|------|-----------|-------------|
-| LUT | 49 | 32,600 | 0.15% |
-| Flip Flops | 91 | 65,200 | 0.14% |
-| IO | 68 | 210 | 32.38% |
+`ml_experiment/train_voter.py` trains a scikit-learn `MLPClassifier` (hidden layers 32 and 16) to pick which of the three CPU outputs is correct.
 
-The entire TMR + ML voter system uses less than **0.15% of the FPGA** — highly area efficient.
-
----
-
-## Project Structure
+- **Data:** 10,000 synthetic scenarios (no fault, single fault, double fault); 80/20 train/test split.
+- **Baseline:** a majority voter that returns the value two CPUs agree on.
+- **Result (3 runs, unseeded):** majority voter about 65 to 67%, neural network about 99.9% on the held-out test set.
+- **Caveats:** the data is synthetic, and in double-fault cases the faulty values are always larger than the correct one, so the network can learn that pattern. In those cases the two faulty values also differ, which a majority voter cannot resolve. Treat this as a proof of concept, not a hardware result.
 
 ```
-├── src/
-│   ├── riscv_top.v        ← Top-level RISC-V processor
-│   ├── tmr_top.v          ← TMR wrapper (3 CPUs + ML voter)
-│   ├── ml_voter.v         ← Neural network voter in Verilog
-│   ├── pc.v               ← Program counter
-│   ├── imem.v             ← Instruction memory
-│   ├── control.v          ← Control unit
-│   ├── regfile.v          ← Register file (32 registers)
-│   ├── alu.v              ← ALU (10 operations)
-│   └── dmem.v             ← Data memory
-├── testbench/
-│   ├── riscv_tb.v         ← RISC-V testbench
-│   └── tmr_tb.v           ← TMR testbench (3 phases)
-├── ml_voter/
-│   └── train_voter.py     ← ML voter training script
-├── constraints/
-│   └── boolean_board.xdc  ← FPGA pin constraints
-└── image/                 ← Simulation screenshots
-```
-
----
-
-## How It Works
-
-### 1. Triple Modular Redundancy
-Three identical RISC-V processors run in parallel. Their outputs are fed into the ML voter which decides which output is correct.
-
-### 2. Fault Injection
-The `fault_enable` and `fault_inject` ports allow injecting an arbitrary bad value into CPU2 to simulate radiation-induced bit flips or hardware faults.
-
-### 3. ML Voter
-A neural network (3 → 16 → 8 → 3) is trained to classify which CPU is producing the correct output. The trained weights are converted into synthesizable Verilog hardware.
-
----
-
-## How to Run
-
-### Python ML Voter
-```bash
-cd ml_voter
-pip install scikit-learn numpy
+cd ml_experiment
+pip install scikit-learn numpy joblib
 python train_voter.py
 ```
 
-### Vivado Simulation
-1. Open Vivado and load the project
-2. Set `tmr_tb.v` as the top testbench
-3. Click **Run Simulation → Run Behavioral Simulation**
-4. Observe the 3 phases in the waveform viewer
+## Repository structure
 
----
+```
+rtl/            Verilog design files (core, TMR top, voter)
+tb/             Testbenches (tmr_tb.v is the main one)
+constraints/    basys3.xdc
+ml_experiment/  train_voter.py, extract_weights.py
+docs/           elaborated-design.pdf, images/
+release/        riscv_top.bit (bitstream)
+```
 
-## Tools Used
+## How to run
 
-| Tool | Purpose |
-|------|---------|
-| Verilog / Vivado | Hardware design and simulation |
-| Python + Scikit-learn | ML voter training |
-| Boolean Board (Artix-7) | FPGA synthesis target |
+**Icarus Verilog (no Vivado needed):**
+
+```
+iverilog -g2012 -o tmr_sim rtl/*.v tb/tmr_tb.v
+vvp tmr_sim
+```
+
+**Vivado:** create a project, add `rtl/*.v` as design sources and `tb/*.v` as simulation sources, set `tmr_tb` as the top simulation module, then run behavioral simulation.
+
+## Limitations and future work
+
+- The core is single-cycle and supports only a subset of RV32I. Planned: a 5-stage pipeline with hazard detection and forwarding, and the full RV32I base set.
+- Known issues: SUB is currently decoded as ADD (funct7 is not checked), and SW/BEQ use the I-type immediate instead of the S/B-type formats.
+- Faults are injected at the PC signal at the voter input, not inside the cores. Planned: injection into registers or pipeline state.
+- The neural network is not yet in RTL. Planned: export fixed-point weights and implement the network in Verilog.
+- Test coverage: `tb/tmr_tb.v` checks detection and recovery; the other testbenches are unit-level.
